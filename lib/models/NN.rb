@@ -90,8 +90,14 @@ module FastNeurons
       @weights_geometry = @neuron_columns.zip(@columns[0..-2])
 
       # These are need for storing and restoring parameters.
-      @stored_weights = @weights_geometry.map{ |geo| NMatrix.new(geo, 0.0) }
-      @stored_biases = @biases_geometry.map{ |geo| NMatrix.new(geo, 0.0) }
+      # @stored_weights = @weights_geometry.map{ |geo| NMatrix.new(geo, 0.0) }
+      # @stored_biases = @biases_geometry.map{ |geo| NMatrix.new(geo, 0.0) }
+      @stored_weights = @weights_geometry.map do |geo|
+          Numo::DFloat.zeros(*geo)
+      end
+      @stored_biases = @biases_geometry.map do |geo|
+          Numo::DFloat.zeros(*geo)
+      end
 
       # Create the geometry of the linear results (z)
       # NOTE: shoud be the same as the biases.
@@ -100,7 +106,10 @@ module FastNeurons
       # Create the geometry of the neurons statuses.
       # NOTE: includes the input values of the NN, hence uses @columns
       # NOTE: a[0] ARE the input values
-      @a = @columns.map{ |col| NMatrix.new([1,col],0.0).transpose }
+      # @a = @columns.map{ |col| NMatrix.new([1,col],0.0).transpose }
+      @a = @columns.map do |col|
+          Numo::DFloat.zeros([col,1])
+      end
 
       # the array stored derivatives of neurons statuses
       @derivative_activation_function = @biases_geometry.clone
@@ -114,10 +123,14 @@ module FastNeurons
       @idm_geometry = @weights_geometry.clone
 
       # Create identity matrix.
-      @idm = @idm_geometry.map{ |g| NMatrix.eye([g[0],g[0]]) }            
+      # @idm = @idm_geometry.map{ |g| NMatrix.eye([g[0],g[0]]) }            
+      @idm = @idm_geometry.map do |g| 
+          Numo::DFloat.eye(g[0],g[0])
+      end
 
       # Set the coefficients of derivatives.
-      @coefficients = NMatrix.ones_like(@a[@neuron_columns.size])
+      # @coefficients = NMatrix.ones_like(@a[@neuron_columns.size])
+      @coefficients = Numo::DFloat.ones(*(@a[@neuron_columns.size].shape))
 
       # Indicates whether updating parameters are enabled or not.
       @updating_is_enabled = true
@@ -134,8 +147,14 @@ module FastNeurons
     # @since 1.2.0
     def initialize_loss_derivatives
       # the arrays of derivatives.
-      @loss_derivative_weights = @weights_geometry.map{ |geo| NMatrix.new(geo, 0.0) }
-      @loss_derivative_biases = @biases_geometry.map{ |geo| NMatrix.new(geo, 0.0) }
+      # @loss_derivative_weights = @weights_geometry.map{ |geo| NMatrix.new(geo, 0.0) }
+        @loss_derivative_weights = @weights_geometry.map do |geo|
+            Numo::DFloat.zeros(*geo)
+        end
+      # @loss_derivative_biases = @biases_geometry.map{ |geo| NMatrix.new(geo, 0.0) }
+        @loss_derivative_biases = @biases_geometry.map do |geo|
+            Numo::DFloat.zeros(*geo)
+        end
     end
 
     # Set up the NN to random values.
@@ -159,7 +178,8 @@ module FastNeurons
         when :Uniform
           # Initialize weights with a uniform random number of a range from -1.0 to 1.0.
           # Create random fast matrices for the weights.
-          weights_array = NMatrix.random(@weights_geometry[i], :dtype => :float64)
+          # weights_array = NMatrix.random(@weights_geometry[i], :dtype => :float64)
+          weights_array = Numo::DFloat.new(@weights_geometry[i]).rand
   
           # Convert a range of weights from 0 ~ 1 to -1.0 ~ 1.0.
           weights_array -= 0.5
@@ -169,43 +189,52 @@ module FastNeurons
         when :Normal
           # Initialize weights with a random number from a Gaussian distribution that has μ = 0, σ = 1.0.
           weights_array = (fan_in * fan_out).times.map{ |size| @normal.rand }
-          @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          # @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          @weights.push(Numo::DFloat.asarray(weights_array))
         when :Zeros
           # Initialize weights with zeros.
-          @weights.push(NMatrix.new(@weights_geometry[i], 0.0))
+          # @weights.push(NMatrix.new(@weights_geometry[i], 0.0))
+          @weights.push(Numo::DFloat.zeros(*@weights_geometry[i]))
         when :Ones
           # Initialize weights with ones.
-          @weights.push(NMatrix.new(@weights_geometry[i], 1.0))
+          # @weights.push(NMatrix.new(@weights_geometry[i], 1.0))
+          @weights.push(Numo::DFloat.ones(*@weights_geometry[i]))
         when :GlorotUniform
           # Initialize weights with a random number from a Glorot's uniform distribution.
           limit = Math.sqrt(6.0 / (fan_in + fan_out))
           weights_array = (fan_in * fan_out).times.map{ |size| rand(-limit..limit) }
-          @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          # @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          @weights.push(Numo::DFloat.asarray(weights_array))
         when :GlorotNormal
           # Initialize weights with a random number from a Glorot's normal distribution.
           glorot_normal = RandomBell.new(mu: 0, sigma: Math.sqrt(2.0 / (fan_in + fan_out)), range: -Float::INFINITY..Float::INFINITY)
           weights_array = (fan_in * fan_out).times.map{ |size| glorot_normal.rand }
-          @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          # @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          @weights.push(Numo::DFloat.asarray(weights_array))
         when :HeUniform
           # Initialize weights with a random number from a He's uniform distribution.
           limit = Math.sqrt(6.0 / fan_in)
           weights_array = (fan_in * fan_out).times.map{ |size| rand(-limit..limit) }
-          @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          # @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          @weights.push(Numo::DFloat.asarray(weights_array))
         when :HeNormal
           # Initialize weights with a random number from a He's normal distribution.
           he_normal = RandomBell.new(mu: 0, sigma: Math.sqrt(2.0 / fan_in), range: -Float::INFINITY..Float::INFINITY)
           weights_array = (fan_in * fan_out).times.map{ |size| he_normal.rand }
-          @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          # @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          @weights.push(Numo::DFloat.asarray(weights_array))
         when :LeCunUniform
           # Initialize weights with a random number from a LeCun's uniform distribution.
           limit = Math.sqrt(3.0 / fan_in)
           weights_array = (fan_in * fan_out).times.map{ |size| rand(-limit..limit) }
-          @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          # @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          @weights.push(Numo::DFloat.asarray(weights_array))
         when :LeCunNormal
           # Initialize weights with a random number from a LeCun's normal distribution.
           lecun_normal = RandomBell.new(mu: 0, sigma: Math.sqrt(1.0 / fan_in), range: -Float::INFINITY..Float::INFINITY)
           weights_array = (fan_in * fan_out).times.map{ |size| lecun_normal.rand }
-          @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          # @weights.push(NMatrix.new(@weights_geometry[i], weights_array, :dtype => :float64))
+          @weights.push(Numo::DFloat.asarray(weights_array))
         end
       end
       
@@ -219,7 +248,8 @@ module FastNeurons
         when :Uniform 
           # Initialize biases with a uniform random number of a range from -1.0 to 1.0.
           # Create random fast matrices for the biases.
-          biases_array = NMatrix.random(@biases_geometry[i], :dtype => :float64)
+          # biases_array = NMatrix.random(@biases_geometry[i], :dtype => :float64)
+          biases_array = Numo::DFloat.new(@biases_geometry[i]).rand
   
           # Convert a range of biases from 0 ~ 1 to -1.0 ~ 1.0.
           biases_array -= 0.5
@@ -228,43 +258,52 @@ module FastNeurons
           @biases.push(biases_array)
         when :Normal
           # Initialize biases with a random number from a Gaussian distribution that has μ = 0, σ = 1.0.
-          @biases.push(N[@biases_geometry[i][0].times.map{ @normal.rand }, :dtype => :float64].transpose)
+          # @biases.push(N[@biases_geometry[i][0].times.map{ @normal.rand }, :dtype => :float64].transpose)
+            @biases.push(Numo::DFloat.asarray(@biases_geometry[i][0].times.map{ @normal.rand }))
         when :Zeros
           # Initialize biases with zeros.
-          @biases.push(NMatrix.new(@biases_geometry[i], 0.0))
+          # @biases.push(NMatrix.new(@biases_geometry[i], 0.0))
+          @biases.push(Mumo::DFloat.zeros(*@biases_geometry[i]))
         when :Ones
           # Initialize biases with ones.          
-          @biases.push(NMatrix.new(@biases_geometry[i], 1.0))
+          # @biases.push(NMatrix.new(@biases_geometry[i], 1.0))
+          @biases.push(Mumo::DFloat.ones(*@biases_geometry[i]))
         when :GlorotUniform
           # Initialize weights with a random number from a Glorot's uniform distribution.
           limit = Math.sqrt(6.0 / (fan_in + fan_out))
           biases_array = (fan_in * fan_out).times.map{ |size| rand(-limit..limit) }
-          @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          # @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          @biases.push(Numo::DFloat.asarray(biases_array))
         when :GlorotNormal
           # Initialize weights with a random number from a Glorot's normal distribution.
           glorot_normal = RandomBell.new(mu: 0, sigma: Math.sqrt(2.0 / (fan_in + fan_out)), range: -Float::INFINITY..Float::INFINITY)
           biases_array = (fan_in * fan_out).times.map{ |size| glorot_normal.rand }
-          @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          # @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          @biases.push(Numo::DFloat.asarray(biases_array))
         when :HeUniform
           # Initialize weights with a random number from a He's uniform distribution.
           limit = Math.sqrt(6.0 / fan_in)
           biases_array = (fan_in * fan_out).times.map{ |size| rand(-limit..limit) }
-          @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          # @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          @biases.push(Numo::DFloat.asarray(biases_array))
         when :HeNormal
           # Initialize weights with a random number from a He's normal distribution.
           he_normal = RandomBell.new(mu: 0, sigma: Math.sqrt(2.0 / fan_in), range: -Float::INFINITY..Float::INFINITY)
           biases_array = (fan_in * fan_out).times.map{ |size| he_normal.rand }
-          @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          # @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          @biases.push(Numo::DFloat.asarray(biases_array))
         when :LeCunUniform
           # Initialize weights with a random number from a LeCun's uniform distribution.
           limit = Math.sqrt(3.0 / fan_in)
           biases_array = (fan_in * fan_out).times.map{ |size| rand(-limit..limit) }
-          @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          # @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          @biases.push(Numo::DFloat.asarray(biases_array))
         when :LeCunNormal
           # Initialize weights with a random number from a LeCun's normal distribution.
           lecun_normal = RandomBell.new(mu: 0, sigma: Math.sqrt(1.0 / fan_in), range: -Float::INFINITY..Float::INFINITY)
           biases_array = (fan_in * fan_out).times.map{ |size| lecun_normal.rand }
-          @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          # @biases.push(NMatrix.new(@biases_geometry[i], biases_array, :dtype => :float64))
+          @biases.push(Numo::DFloat.asarray(biases_array))
         end
       end
       
@@ -337,7 +376,8 @@ module FastNeurons
     # @since 1.0.0
     def input(values, teaching_data = nil)
       # The inputs are stored into a[0] as a NMatrix vector.
-      @a[0] = N[values.flatten, :dtype => :float64].transpose
+      # @a[0] = N[values.flatten, :dtype => :float64].transpose
+      @a[0] = Numo::DFloat.asarray(values.flatten)
 
       # The teaching data is stored into T as a NMatrix vector.
       set_teaching_data(teaching_data)
@@ -349,7 +389,8 @@ module FastNeurons
     # @param [Array] values outputs of row-th layer's neurons
     # @since 1.0.0
     def input_to(row, *values)
-      @a[row] = N[values.flatten, :dtype => :float64].transpose
+      # @a[row] = N[values.flatten, :dtype => :float64].transpose
+      @a[row] = Numo::DFloat.assarray(values.flatten)
     end
 
     # Compute multiply accumulate of inputs, weights and biases.
@@ -362,11 +403,12 @@ module FastNeurons
       # In this case, the calculation results are stored in Matrix C.
       # For this reason, need to duplicate the @biases[row] value in @z[row] in advance.
 
-      # Duplicate @biases[row] value to @z[row].
-      @z[row] = NMatrix::BLAS.gemm(@idm[row], @biases[row])
-      
-      # Compute the values before the activation function is applied.  
-      @z[row] = NMatrix::BLAS.gemm(@weights[row], @a[row], @z[row], 1.0, 1.0)                              
+      # # Duplicate @biases[row] value to @z[row].
+      # @z[row] = NMatrix::BLAS.gemm(@idm[row], @biases[row])
+      # 
+      # # Compute the values before the activation function is applied.  
+      # @z[row] = NMatrix::BLAS.gemm(@weights[row], @a[row], @z[row], 1.0, 1.0)                              
+      @z[row] = @weights.dot(@a[row]) + @biases[row]
     end
 
     # Compute neurons statuses.
@@ -511,14 +553,16 @@ module FastNeurons
     # @param [Integer] row the number of layer currently computing
     # @since 1.0.0
     def compute_delta(row)
-      @delta[row] = NMatrix::BLAS.gemm(@weights[row+1], @delta[row+1], nil, 1.0, 0.0, :transpose) * @derivative_activation_function[row]      
+      # @delta[row] = NMatrix::BLAS.gemm(@weights[row+1], @delta[row+1], nil, 1.0, 0.0, :transpose) * @derivative_activation_function[row]     
+        @delta[row] = @weights[row+1].dot(@delta[row+1]) * @derivative_activation_function[row]
     end
 
     # Compute derivatives of weights.
     # @param [Integer] row the number of layer currently computing
     # @since 1.2.0
-    def compute_weights_derivatives(row)                  
-      @loss_derivative_weights[row] += NMatrix::BLAS.gemm(@delta[row], @a[row].transpose)      
+    def compute_weights_derivatives(row) 
+      # @loss_derivative_weights[row] += NMatrix::BLAS.gemm(@delta[row], @a[row].transpose)
+      @loss_derivative_weights[row] += @delta[row].dot(@a[row])
     end
 
     # Compute derivatives of biases.
@@ -545,7 +589,8 @@ module FastNeurons
     # @since 1.0.0
     def update_weights(row)
       @loss_derivative_weights[row] = @loss_derivative_weights[row] / @batch_size.to_f
-      @weights[row] = NMatrix::BLAS.gemm(@idm[row], @loss_derivative_weights[row], @weights[row], -(@learning_rate), 1.0)
+      # @weights[row] = NMatrix::BLAS.gemm(@idm[row], @loss_derivative_weights[row], @weights[row], -(@learning_rate), 1.0)
+      @weights[row] += @idm[row].dot(@loss_derivative_weights[row])*(-@learnin_rate)
     end
 
     # Update biases.
@@ -553,7 +598,8 @@ module FastNeurons
     # @since 1.0.0
     def update_biases(row)
       @loss_derivative_biases[row] = @loss_derivative_biases[row] / @batch_size.to_f      
-      @biases[row] = NMatrix::BLAS.gemm(@idm[row], @loss_derivative_biases[row], @biases[row], -(@learning_rate), 1.0)            
+      # @biases[row] = NMatrix::BLAS.gemm(@idm[row], @loss_derivative_biases[row], @biases[row], -(@learning_rate), 1.0)
+      @biases[row] += @idm[row].dot(@loss_derivative_biases[row])*(-@learning_rate)
     end
 
     # Update biases and weights.
@@ -659,18 +705,21 @@ module FastNeurons
     # @param [Array] teaching_data teaching data of neural network
     # @since 1.3.0
     def set_teaching_data(teaching_data = nil)
-      @T = teaching_data.nil? ? NMatrix.zeros_like(@a[@neuron_columns.size]) : N[teaching_data.flatten, :dtype => :float64].transpose
+      # @T = teaching_data.nil? ? NMatrix.zeros_like(@a[@neuron_columns.size]) : N[teaching_data.flatten, :dtype => :float64].transpose
+      @T = teaching_date.nil? ? @a[@neuron_columns.size].new_zeros : 
+            Numo::DFloat.asarray(teaching_data.flatten)
     end
 
     # Set coefficients of derivatives.
     # @param [Array or Float] coefficients coefficients of derivatives.
     # @since 1.3.0
     def set_coefficients(coefficients)
-      if coefficients.kind_of?(Array)
-        @coefficients = N[coefficients.flatten, :dtype => :float64].transpose
-      elsif
-        @coefficients = NMatrix.new([1, @a[@neuron_columns.size].size], coefficients).transpose        
-      end      
+      # if coefficients.kind_of?(Array)
+      #   @coefficients = N[coefficients.flatten, :dtype => :float64].transpose
+      # elsif
+      #   @coefficients = NMatrix.new([1, @a[@neuron_columns.size].size], coefficients).transpose        
+      # end      
+        @coefficients = Numo::DFloat.asarray(coefficients.flatten)
     end
 
     # Set batch size of mini-batch learning.
@@ -727,7 +776,11 @@ module FastNeurons
         biases_matrix = hash["biases"].to_a
         @biases = []
         @neuron_columns.size.times do |i|
-          @biases.push(N[biases_matrix[i].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f}].transpose)
+          # @biases.push(N[biases_matrix[i].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f}].transpose)
+          @biases.push(
+                Numo::DFloat.asarray(biases_matrix[i].split(',').map! do |item|
+                    item.delete("/[\-]/").gsub(" ","").to_f
+                end)
         end
         puts "#{@biases}"
 
@@ -736,7 +789,8 @@ module FastNeurons
         @weights = []
         @neuron_columns.size.times do |i|
           weights_array = weights_matrix[i].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f}.to_a
-          @weights.push(NMatrix.new(@weights_geometry[i], weights_array))
+          # @weights.push(NMatrix.new(@weights_geometry[i], weights_array))
+          @weights.push(Numo::DFloat.asarray(weights_array))
         end
         puts "#{@weights}"
       end

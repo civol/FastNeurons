@@ -51,19 +51,22 @@ module FastNeurons
       # The visible layer and the hidden layer are stored in that order.
       # @units[0] -> visible layer's units
       # @units[1] -> hidden layer's units
-      @units = @columns.map{ |col| NMatrix.new([1,col],0.0) }
+      # @units = @columns.map{ |col| NMatrix.new([1,col],0.0) }
+      @units = @columns.map{ |col| Numo::DFloat.zeros(1,col) }
 
       # Create the matrices of conditional probability that the unit will be 1.
       # P(hidden|visible)→P(visible|hidden)の順で格納
       # @probability[0] -> P(hidden|visible)
       # @probability[1] -> P(visible|hidden)
-      @probability = @columns.reverse.map{ |col| NMatrix.new([1,col],0.0) }
+      # @probability = @columns.reverse.map{ |col| NMatrix.new([1,col],0.0) }
+      @probability = @columns.reverse.map{ |col| Numo::DFloat.zeros(1,col) }
 
       # Initialize derivative of biases and weights.
       initialize_derivatives
 
       # need for compute cross entropy
-      @cross_entropy = NMatrix.new([1,@units[0].size],0.0)
+      # @cross_entropy = NMatrix.new([1,@units[0].size],0.0)
+      @cross_entropy = Numo::DFloat.zeros(1,@units[0].size)
 
       # Make a Gaussian distribution that has μ = 0, σ = 0.01.
       @bell = RandomBell.new(mu: 0, sigma: 0.01, range: -Float::INFINITY..Float::INFINITY)
@@ -81,17 +84,20 @@ module FastNeurons
     # @since 1.2.0
     def initialize_derivatives
       # Initialize derivative matrix of biases.
-      @derivative_biases = @columns.map{ |col| NMatrix.new([1,col], 0.0) }
+      # @derivative_biases = @columns.map{ |col| NMatrix.new([1,col], 0.0) }
+      @derivative_biases = @columns.map{ |col| Numo::DFloat.zeros(1,col) }
 
       # Initialize derivative matrix of weights.
-      @derivative_weights = NMatrix.new(@weights_geometry, 0.0)
+      # @derivative_weights = NMatrix.new(@weights_geometry, 0.0)
+      @derivative_weights = Numo::DFloat.zeros(*@weights_geometry)
     end
 
     # Set up the RBM to random values.
     # @since 1.2.0
     def randomize
       # Create fast matrices for the biases.
-      @biases = @biases_geometry.map { |geo| NMatrix.new(geo,0.0)}
+      # @biases = @biases_geometry.map { |geo| NMatrix.new(geo,0.0)}
+      @biases = @biases_geometry.map { |geo| Numo::DFloat.zeros(*geo)}
       puts "@biases: #{@biases}"
 
       # Create random fast matrices for the weights.
@@ -105,7 +111,8 @@ module FastNeurons
 
       # Store weights into @weights.
       @weights = []
-      @weights.push(NMatrix.new(@weights_geometry,weights_array))
+      # @weights.push(NMatrix.new(@weights_geometry,weights_array))
+      @weights.push(Numo::DFloat.asarray(weights_array))
       puts "@weights: #{@weights}"
     end
 
@@ -113,7 +120,8 @@ module FastNeurons
     # @param [Array] values inputs of the restricted boltzmann machine.
     # @since 1.2.0
     def input(values)
-      @units[0] = N[values.flatten,:dtype => :float64]
+      # @units[0] = N[values.flatten,:dtype => :float64]
+      @units[0] = Numo::DFloat.asarray(values.flatten)
       @inputs = @units[0].dup
 
       # If Gaussian-Bernoulli RBM is used, it standardize input data.
@@ -125,7 +133,8 @@ module FastNeurons
     # @param [Array] values inputs of the hidden layer
     # @since 1.2.0
     def input_hidden_layer(values)
-      @units[1] = N[values.flatten,:dtype => :float64]
+      # @units[1] = N[values.flatten,:dtype => :float64]
+      @units[1] = Numo::DFloat.asarray(values.flatten)
       sample_visible_units
     end
 
@@ -183,13 +192,15 @@ module FastNeurons
     # @since 1.2.0
     def sample_hidden_units
       # Compute conditional probability of hidden layer.             
-      pre_sigmoid = NMatrix::BLAS.gemm(@units[0], @weights[0]) + @biases[0]      
+      # pre_sigmoid = NMatrix::BLAS.gemm(@units[0], @weights[0]) + @biases[0]      
+      pre_sigmoid = @units[0].dot(@weights[0]) + @biases[0]      
       @probability[0] = @sigmoid.call(pre_sigmoid)
 
       # Sample hidden units from conditional probability.
-      @probability[0].each_with_index do |prob,i|
-        @units[1][i] = prob >= rand ? 1.0 : 0.0
-      end
+      # @probability[0].each_with_index do |prob,i|
+      #   @units[1][i] = prob >= rand ? 1.0 : 0.0
+      # end
+      @units[1] = @probality[0].ge(rand)
     end
 
     # Compute P(visible|hidden) and sample visible units.
@@ -202,21 +213,24 @@ module FastNeurons
     # @since 1.2.0
     def sample_from_bernoulli
       # Compute conditional probability of visible layer.
-      product_of_units_and_weights = NMatrix::BLAS.gemm(@weights[0], @units[1].transpose)
+      # product_of_units_and_weights = NMatrix::BLAS.gemm(@weights[0], @units[1].transpose)
+      product_of_units_and_weights = @weights[0].dot(@units[1])
       pre_sigmoid = product_of_units_and_weights.transpose + @biases[1]
       @probability[1] = @sigmoid.call(pre_sigmoid)
 
       # Sample visible units from conditional probability.
-      @probability[1].each_with_index do |prob,i|
-        @units[0][i] = prob >= rand ? 1.0 : 0.0
-      end
+      # @probability[1].each_with_index do |prob,i|
+      #   @units[0][i] = prob >= rand ? 1.0 : 0.0
+      # end
+      @units[1] = @probality[0].ge(rand)
     end
 
     # Sample visible units from Gaussian units.
     # @since 1.2.0
     def sample_from_gaussian
       # Compute product of hidden units and weights.
-      product_of_units_and_weights = NMatrix::BLAS.gemm(@weights[0], @units[1].transpose)
+      # product_of_units_and_weights = NMatrix::BLAS.gemm(@weights[0], @units[1].transpose)
+      product_of_units_and_weights = @weights[0].dot(@units[1])
 
       # Compute mean of Gaussian distribution.
       mean_of_gaussian_distribution = product_of_units_and_weights.transpose + @biases[1]
@@ -238,7 +252,8 @@ module FastNeurons
       unit = @type == :Bernoulli ? @units[0] : @probability[1]
 
       # Compute derivative of weights.
-      @derivative_weights += NMatrix::BLAS.gemm(@inputs, @probability_hidden, nil, 1.0, 0.0, :transpose) - NMatrix::BLAS.gemm(unit, @probability[0], nil, 1.0, 0.0, :transpose)
+      # @derivative_weights += NMatrix::BLAS.gemm(@inputs, @probability_hidden, nil, 1.0, 0.0, :transpose) - NMatrix::BLAS.gemm(unit, @probability[0], nil, 1.0, 0.0, :transpose)
+      @derivative_weights += @inputs.dot( @probability_hidden) - unit.dot(@probability[0])
 
       # Compute derivative of biases.
       @derivative_biases[0] += (@inputs - unit)
@@ -289,7 +304,8 @@ module FastNeurons
     # @since 1.2.0
     def compute_mean_cross_entropy(number_of_data)
       mean_cross_entropy = -@cross_entropy.to_a.sum / number_of_data.to_f
-      @cross_entropy = NMatrix.new([1,@units[0].size],0.0)
+      # @cross_entropy = NMatrix.new([1,@units[0].size],0.0)
+      @cross_entropy = Numo::DFloat.zeros(1,@units[0].size)
       return mean_cross_entropy
     end
 
@@ -358,7 +374,8 @@ module FastNeurons
         biases_matrix = hash["biases"].to_a
         @biases = []
         @columns.size.times do |i|
-          @biases.push(N[biases_matrix[i].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f}])
+          # @biases.push(N[biases_matrix[i].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f}])
+            @biases.push(Numo::DFloat.asarray(biases_matrix[i].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f})
         end
         puts "#{@biases}"
 
@@ -366,7 +383,8 @@ module FastNeurons
         weights_matrix = hash["weights"].to_a
         @weights = []
         weights_array = weights_matrix[0].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f}.to_a
-        @weights.push(NMatrix.new(@weights_geometry,weights_array))
+        # @weights.push(NMatrix.new(@weights_geometry,weights_array))
+        @weights.push(Numo::DFloat.asarray(weights_array))
         puts "#{@weights}"
       end
     end

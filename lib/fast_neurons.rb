@@ -1,4 +1,5 @@
-require 'nmatrix'
+# require 'nmatrix'
+require 'numo/openblas'  # Replacement for the deprecated nmatrix library
 require 'json'
 require 'random_bell'
 require_relative 'models/NN.rb'
@@ -6,6 +7,7 @@ require_relative 'models/RBM.rb'
 
 SCALE = 1.0507009873554804934193349852946
 ALPHA = 1.6732632423543772848170429916717
+DELTA = 1e-7
 
 # FastNeurons is a simple and fast library using NMatrix for building neural networks.<br>
 # Currently, it supports fully connected neural network and restricted boltzmann machine.<br>
@@ -27,7 +29,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are applied to sigmoid function
   # @since 1.1.0
   def self.sigmoid(z)
-    return ((-z).exp + 1) ** (-1)
+    # return ((-z).exp + 1) ** (-1)
+      return 1.0/(Numo::DFloat::Math.exp(-z)+1.0)
   end
 
   # Apply tanh function to z.
@@ -35,9 +38,12 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are applied to tanh function
   # @since 1.1.0
   def self.tanh(z)
-    pos_exp = z.exp
-    neg_exp = (-z).exp
-    return (pos_exp - neg_exp) / (pos_exp + neg_exp)
+    # pos_exp = z.exp
+    # neg_exp = (-z).exp
+    # return (pos_exp - neg_exp) / (pos_exp + neg_exp)
+      pos_exp = Numo::DFloat::Math.exp(z)
+      neg_exp = Numo::DFloat::Math.exp(-z)
+      return (pos_exp - neg_exp) / (pos_exp + neg_exp)
   end
 
   # Apply relu function to z.
@@ -53,7 +59,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are applied to leaky relu function
   # @since 1.1.0
   def self.leakyrelu(z)
-    return N[z.map{ |x| x > 0.0 ? x : 0.01 * x }.to_a.flatten].transpose
+    # return N[z.map{ |x| x > 0.0 ? x : 0.01 * x }.to_a.flatten].transpose
+      return z.gt(0.0)*z + z.le(0.0)*0.01
   end
 
   # Apply elu function to z.
@@ -61,7 +68,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are applied to elu function
   # @since 1.1.0
   def self.elu(z)
-    return N[z.map{ |x| x > 0.0 ? x : (Math.exp(x) - 1) }.to_a.flatten].transpose
+    # return N[z.map{ |x| x > 0.0 ? x : (Math.exp(x) - 1) }.to_a.flatten].transpos
+      return z.gt(0.0)*z + z.le(0.0)*(Numo::DFloat::Math.exp(z)-1.0)
   end
 
   # Apply selu function to z.
@@ -69,7 +77,9 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are applied to selu function
   # @since 1.1.0
   def self.selu(z)
-    return N[z.map{ |x| x > 0.0 ? x * SCALE : ALPHA * (Math.exp(x) - 1) * SCALE }.to_a.flatten].transpose
+    # return N[z.map{ |x| x > 0.0 ? x * SCALE : ALPHA * (Math.exp(x) - 1) * SCALE }.to_a.flatten].transpose
+      return z.gt(0.0)*z*SCALE +
+             z.le(0.0)*ALPHA*(Numo::DFloat::Math.exp(z)-1.0)*SCALE
   end
 
   # Apply softplus function to z.
@@ -77,7 +87,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are applied to softplus function
   # @since 1.1.0
   def self.softplus(z)
-    return (z.exp + 1.0).log
+    # return (z.exp + 1.0).log
+      Numo::DFLoat::Math.log(Numo::DFloat::Math.exp(z) + 1.0)
   end
 
   # Apply swish function to z.
@@ -85,7 +96,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are applied to swish function
   # @since 1.1.0
   def self.swish(z)
-    return z * sigmoid(z)
+    # return z * sigmoid(z)
+      return z * sigmoid(z)
   end
 
   # Apply mish function to z.
@@ -93,7 +105,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are applied to mish function
   # @since 1.1.0
   def self.mish(z)
-    return z * tanh(softplus(z))
+    # return z * tanh(softplus(z))
+      return z * tanh(softplus(z))
   end
 
   # Apply softmax function to z.
@@ -101,8 +114,10 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are applied to softmax function
   # @since 1.5.0
   def self.softmax(z)
-    exp_z = (z - z.max[0]).exp
-    return exp_z / exp_z.sum[0]
+    # exp_z = (z - z.max[0]).exp
+    # return exp_z / exp_z.sum[0]
+      exp_z = Numo::DFloat::Math.exp(z - z.max)
+      return exp_z / exp_z.sum
   end
 
   # Differentiate linear function.
@@ -110,7 +125,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.1.0
   def self.differentiate_linear(a)
-    return NMatrix.ones_like(a)
+    # return NMatrix.ones_like(a)
+      return a.new_ones
   end
 
   # Differentiate sigmoid function.
@@ -118,7 +134,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.1.0
   def self.differentiate_sigmoid(a)
-    return (-a + 1.0) * a
+    # return (-a + 1.0) * a
+      return (-a + 1.0) * a
   end
 
   # Differentiate tanh function.
@@ -126,7 +143,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.1.0
   def self.differentiate_tanh(a)
-    return -(a ** 2) + 1.0
+    # return -(a ** 2) + 1.0
+      return -(a.square) + 1.0
   end
 
   # Differentiate relu function.
@@ -134,7 +152,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.1.0
   def self.differentiate_relu(z)
-    return N[z.map{ |x| x > 0.0 ? 1.0 : 0.0 }.to_a.flatten].transpose
+    # return N[z.map{ |x| x > 0.0 ? 1.0 : 0.0 }.to_a.flatten].transpose
+      return z.gt(0.0)
   end
 
   # Differentiate leaky relu function.
@@ -142,7 +161,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.1.0
   def self.differentiate_leakyrelu(z)
-    return N[z.map{ |x| x > 0.0 ? 1.0 : 0.01 }.to_a.flatten].transpose
+    # return N[z.map{ |x| x > 0.0 ? 1.0 : 0.01 }.to_a.flatten].transpose
+      return z.gt(0.0) + z.le(0.0)*0.01
   end
 
   # Differentiate elu function.
@@ -150,7 +170,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.1.0
   def self.differentiate_elu(z)
-    return N[z.map{ |x| x > 0.0 ? 1.0 : Math.exp(x) }.to_a.flatten].transpose
+    # return N[z.map{ |x| x > 0.0 ? 1.0 : Math.exp(x) }.to_a.flatten].transpose
+      return z.gt(0.0) + z.le(0.0) * Numo::DFloat::Math.exp(z)
   end
 
   # Differentiate selu function.
@@ -158,7 +179,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.1.0
   def self.differentiate_selu(z)
-    return N[z.map{ |x| x > 0.0 ? SCALE : ALPHA * Math.exp(x) * SCALE }.to_a.flatten].transpose
+    # return N[z.map{ |x| x > 0.0 ? SCALE : ALPHA * Math.exp(x) * SCALE }.to_a.flatten].transpose
+      return z.gt(0.0)*SCALE + z.le(0.0)*ALPHA*Numo::DFloat::Math.exp(z)*SCALE
   end
 
   # The derivative of softplus is the same as sigmoid function.
@@ -168,8 +190,10 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.1.0
   def self.differentiate_swish(z)
-    a = swish(z)
-    return a + (-a + 1) * sigmoid(z)
+    # a = swish(z)
+    # return a + (-a + 1) * sigmoid(z)
+      a = swish(z)
+      return a + (-a + 1.0) * sigmoid(z)
   end
 
   # Differentiate mish function.
@@ -177,9 +201,16 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.1.0
   def self.differentiate_mish(z)
-    omega = (z + 1) * 4 + (z * 2).exp * 4 + (z * 3).exp + (z * 4 + 6) * z.exp
-    delta = z.exp * 2 + (z * 2).exp + 2
-    return (z.exp * omega) / (delta ** 2)
+    # omega = (z + 1) * 4 + (z * 2).exp * 4 + (z * 3).exp + (z * 4 + 6) * z.exp
+    # delta = z.exp * 2 + (z * 2).exp + 2
+    # return (z.exp * omega) / (delta ** 2)
+      exp_z = Numo::DFloat::Math.exp(z)
+      exp_2z = Numo::DFloat::Math.exp(z*2.0)
+      exp_3z = Numo::DFloat::Math.exp(z*3.0)
+      exp_4_6z = Numo::DFloat::Math.exp(z*4.0+6.0)
+      omega = (z+1.0)*4.0 + exp_2z*4.0 + exp_3z + exp_4_6z + exp_z  
+      delta = exp_z*2.0 + exp_2z + 2.0
+      return (exp_z * omega) / (delta.square)
   end
 
   # Differentiate softmax function.
@@ -210,7 +241,8 @@ module FastNeurons
   # @return [Float] loss value
   # @since 1.5.0
   def self.mean_square(t, a)
-    return ((t - a) ** 2).sum[0] / a.size
+    # return ((t - a) ** 2).sum[0] / a.size
+      return ((t - a).square).sum / a.size
   end
 
   # Compute the squared error.
@@ -219,7 +251,8 @@ module FastNeurons
   # @return [Float] loss value
   # @since 1.9.0
   def self.squared_error(t, a)
-    return ((t - a) ** 2).sum[0] / 2.0
+    # return ((t - a) ** 2).sum[0] / 2.0
+      return ((t - a).square).sum / 2.0
   end
 
   # Compute the cross entropy error.
@@ -228,8 +261,9 @@ module FastNeurons
   # @return [Float] loss value
   # @since 1.5.0
   def self.cross_entropy(t, a)
-    delta = 1e-7
-    return -(t * (a + delta).log).sum[0]
+    # delta = 1e-7
+    # return -(t * (a + delta).log).sum[0]
+      return -(t * Numo::DFloat::Math.log(a + DELTA)).sum
   end
 
   # Differentiate the mean squared error function.
@@ -238,7 +272,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.5.0
   def self.differentiate_mean_square(t, a)
-    return -(t - a) * (2.0 / a.size)
+    # return -(t - a) * (2.0 / a.size)
+      return -(t - a) * (2.0 / a.size)
   end
 
   # Differentiate the squared error function.
@@ -247,7 +282,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.5.0
   def self.differentiate_squared_error(t, a)
-    return -(t - a)
+    # return -(t - a)
+      return -(t - a)
   end
 
   # Differentiate the cross entropy error function.
@@ -256,7 +292,8 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
   # @since 1.5.0
   def self.differentiate_cross_entropy(t, a)
-    return -(t / a)
+    # return -(t / a)
+      return -(t / a)
   end
 
   # loss functions

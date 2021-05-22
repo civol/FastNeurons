@@ -375,7 +375,7 @@ module FastNeurons
         @biases = []
         @columns.size.times do |i|
           # @biases.push(N[biases_matrix[i].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f}])
-            @biases.push(Numo::DFloat.asarray(biases_matrix[i].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f})
+            @biases.push(Numo::DFloat.asarray(biases_matrix[i].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f}) )
         end
         puts "#{@biases}"
 

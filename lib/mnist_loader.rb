@@ -59,7 +59,8 @@ class MNISTLoader
   # @param [Array] inputs array of pixel values
   # @since 1.0.0
   def print_ascii(inputs)
-    inputs = inputs.map {|pixel| pixel*255}
+    # inputs = inputs.map {|pixel| pixel*255}
+      inputs = inputs.to_a.flatten.map {|pixel| pixel*255}
     outputs = inputs.each_slice(28).map do |row|
       row.map do |darkness|
         darkness < 64 ?  " " : ( darkness < 128 ? "." : "X" )

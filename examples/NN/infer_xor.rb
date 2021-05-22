@@ -18,5 +18,5 @@ data.each_with_index do |inputs,i|
   nn.input(inputs, t[i])
   nn.propagate
 
-  puts "input: #{inputs}, ans: #{t[i]}, expected: #{nn.get_outputs}"
+  puts "input: #{inputs}, ans: #{t[i]}, expected: #{nn.get_outputs.to_a}"
 end

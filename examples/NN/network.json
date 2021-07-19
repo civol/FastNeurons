@@ -1,19 +1,19 @@
 {
   "columns": [
     784,
-    15,
+    150,
     784
   ],
   "activation_function": [
-    "Sigmoid",
-    "Sigmoid"
+    "HTanh",
+    "HTanh"
   ],
   "biases": [
-    "#<Numo::DFloat:0x00007fa6c2952e80>",
-    "#<Numo::DFloat:0x00007fa6c294b018>"
+    "#<Numo::DFloat:0x00007fca5f841d50>",
+    "#<Numo::DFloat:0x00007fca5f842fc0>"
   ],
   "weights": [
-    "#<Numo::DFloat:0x00007fa6c2948188>",
-    "#<Numo::DFloat:0x00007fa6c313c650>"
+    "#<Numo::DFloat:0x00007fca5f8426b0>",
+    "#<Numo::DFloat:0x00007fca5f843948>"
   ]
 }

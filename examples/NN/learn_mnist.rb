@@ -13,6 +13,7 @@ loss = []
 
 # Initialize a neural network.
 nn = FastNeurons::NN.new([784, 15, 784], [:Sigmoid, :Sigmoid], :SquaredError)
+# nn = FastNeurons::NN.new([784, 15, 784], [:ReLU, :ReLU], :SquaredError)
 
 # Set learning rate.
 nn.set_learning_rate(0.1)

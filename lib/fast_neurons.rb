@@ -4,6 +4,7 @@ require 'json'
 require 'random_bell'
 require_relative 'models/NN.rb'
 require_relative 'models/RBM.rb'
+require_relative 'models/BNN.rb'
 
 SCALE = 1.0507009873554804934193349852946
 ALPHA = 1.6732632423543772848170429916717
@@ -120,6 +121,20 @@ module FastNeurons
       return exp_z / exp_z.sum
   end
 
+  # Apply the hard hyperbolic tangent function to z.
+  # @param [NMatrix] z a vector of NMatrix containing the multiply accumulation of inputs, weights and biases
+  # @return [NMatrix] a vector of NMatrix that each elements are applied to softmax function
+  def self.htanh(z)
+      return z * (z.abs.le(1.0)) + z.sign * (z.abs.gt(1.0))
+  end
+
+  # Apply the sign function to z.
+  # @param [NMatrix] z a vector of NMatrix containing the multiply accumulation of inputs, weights and biases
+  # @return [NMatrix] a vector of NMatrix that each elements are applied to softmax function
+  def self.sign(z)
+      return 1.0*(z.ge(0.0)) - 1.0*(z.lt(0.0))
+  end
+
   # Differentiate linear function.
   # @param [NMatrix] a a vector of NMatrix containing neuron statuses
   # @return [NMatrix] a vector of NMatrix that each elements are differentiated
@@ -144,7 +159,7 @@ module FastNeurons
   # @since 1.1.0
   def self.differentiate_tanh(a)
     # return -(a ** 2) + 1.0
-      return -(a.square) + 1.0
+      return 1.0 - (a.square)
   end
 
   # Differentiate relu function.
@@ -222,6 +237,25 @@ module FastNeurons
     return (a - t)
   end
 
+  # Differentiate the hard hyperbolic tangent function.
+  # NOTE: from approximate clip function.
+  # @param [NMatrix] z a vector of NMatrix containing neuron statuses
+  # @return [NMatrix] a vector of NMatrix that each elements are differentiated
+  # @since 1.1.0
+  def self.differentiate_htanh(z)
+      # return (z.abs.le(1.0))
+      return 1.0
+  end
+
+  # Differentiate the sign function.
+  # NOTE: from approximate clip function.
+  # @param [NMatrix] z a vector of NMatrix containing neuron statuses
+  # @return [NMatrix] a vector of NMatrix that each elements are differentiated
+  # @since 1.1.0
+  def self.differentiate_sign(z)
+      return 1.0
+  end
+
   # activation functions
   Linear = { antiderivative: method(:linear), derivative: method(:differentiate_linear) }
   Sigmoid = { antiderivative: method(:sigmoid), derivative: method(:differentiate_sigmoid) }
@@ -234,6 +268,8 @@ module FastNeurons
   Swish = { antiderivative: method(:swish), derivative: method(:differentiate_swish) }
   Mish = { antiderivative: method(:mish), derivative: method(:differentiate_mish) }
   Softmax = { antiderivative: method(:softmax), derivative: method(:differentiate_softmax) }
+  HTanh = { antiderivative: method(:htanh), derivative: method(:differentiate_htanh) }
+  Sign = { antiderivative: method(:sign), derivative: method(:differentiate_sign) }
 
   # Compute the mean squared error.
   # @param [NMatrix] t a vector of NMatrix containing teaching data

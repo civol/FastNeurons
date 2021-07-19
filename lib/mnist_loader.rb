@@ -37,11 +37,12 @@ class MNISTLoader
 
   # Normalize pixel values to a continuous values from 0 ~ 255 to 0 ~ 1.
   # @param [Array] inputs array of pixel values.
+  # @param [Range] scaling range for the result.
   # @return [Array] array of normalized pixel values
   # @since 1.0.0
-  def normalize(inputs)
+  def normalize(inputs, range = 0.0..1.0)
     return inputs.map{|pixel|
-      pixel/256.0
+        (pixel/256.0) * (range.last-range.first) + range.first
     }
   end
 
@@ -49,23 +50,27 @@ class MNISTLoader
   # @param [Array] inputs array of pixel values.
   # @return [Array] array of binarized pixel values
   # @since 1.1.0
-  def binarize(inputs)
+  def binarize(inputs, min = 0.0, max = 1.0)
     return inputs.map{|pixel|
-      pixel > 0.5 ? 1.0 : 0.0
+      # pixel > 0.5 ? 1.0 : 0.0
+        pixel > ((max-min)/2.0+min) ? max : min
     }
   end
 
   # Print ascii of MNIST.
   # @param [Array] inputs array of pixel values
+  # @param [Range] the scaling range on the inputs.
   # @since 1.0.0
-  def print_ascii(inputs)
-    # inputs = inputs.map {|pixel| pixel*255}
-      inputs = inputs.to_a.flatten.map {|pixel| pixel*255}
-    outputs = inputs.each_slice(28).map do |row|
-      row.map do |darkness|
-        darkness < 64 ?  " " : ( darkness < 128 ? "." : "X" )
-      end.join
-    end.join("\n")
-    puts outputs
+  def print_ascii(inputs, range = 0.0..1.0)
+      # inputs = inputs.to_a.flatten.map {|pixel| pixel*255}
+      inputs = inputs.to_a.flatten.map {|pixel|
+          ((pixel-range.first)/(range.last-range.first))*255
+      }
+      outputs = inputs.each_slice(28).map do |row|
+          row.map do |darkness|
+              darkness < 64 ?  " " : ( darkness < 128 ? "." : "X" )
+          end.join
+      end.join("\n")
+      puts outputs
   end
 end

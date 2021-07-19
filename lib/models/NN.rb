@@ -66,7 +66,7 @@ module FastNeurons
       @activation_functions = { Linear: Linear, Sigmoid: Sigmoid, Tanh: Tanh,
                                 ReLU: ReLU, LeakyReLU: LeakyReLU, ELU: Elu, SELU: SElu,
                                 Softplus: Softplus, Swish: Swish, Mish: Mish,
-                                Softmax: Softmax }
+                                Softmax: Softmax, HTanh: HTanh, Sign: Sign }
 
       # Set the proc object of antiderivative of a specified activation function.
       @antiderivatives = @keys.map{ |key| @activation_functions[key][:antiderivative] }.to_a
@@ -274,7 +274,7 @@ module FastNeurons
         when :Ones
           # Initialize biases with ones.          
           # @biases.push(NMatrix.new(@biases_geometry[i], 1.0))
-          @biases.push(Mumo::DFloat.ones(*@biases_geometry[i]))
+          @biases.push(Numo::DFloat.ones(*@biases_geometry[i]))
         when :GlorotUniform
           # Initialize weights with a random number from a Glorot's uniform distribution.
           limit = Math.sqrt(6.0 / (fan_in + fan_out))
@@ -762,7 +762,7 @@ module FastNeurons
     # @since 1.0.0
     def save_network(path)
       # Make a hash of parameters.
-      hash = { "columns" => @columns, "activation_function" => @keys, "biases" => @biases, "weights" => @weights }
+        hash = { "columns" => @columns, "activation_function" => @keys, "biases" => @biases.map {|b| b.to_a }, "weights" => @weights.map {|w| w.to_a} }
 
       # Save file.
       File.open(path,"w+") do |f|
@@ -795,10 +795,7 @@ module FastNeurons
         @biases = []
         @neuron_columns.size.times do |i|
           # @biases.push(N[biases_matrix[i].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f}].transpose)
-          @biases.push(
-                Numo::DFloat.asarray(biases_matrix[i].split(',').map! do |item|
-                    item.delete("/[\-]/").gsub(" ","").to_f
-                end) )
+          @biases.push(Numo::DFloat.asarray(biases_matrix[i]))
         end
         puts "#{@biases}"
 
@@ -806,9 +803,8 @@ module FastNeurons
         weights_matrix = hash["weights"].to_a
         @weights = []
         @neuron_columns.size.times do |i|
-          weights_array = weights_matrix[i].split(',').map!{ |item| item.delete("/[\-]/").gsub(" ","").to_f}.to_a
-          # @weights.push(NMatrix.new(@weights_geometry[i], weights_array))
-          @weights.push(Numo::DFloat.asarray(weights_array).reshape(*@weights_geometry[i]))
+            # @weights.push(NMatrix.new(@weights_geometry[i], weights_array))
+            @weights.push(Numo::DFloat.asarray(weights_matrix[i]))
         end
         puts "#{@weights}"
       end

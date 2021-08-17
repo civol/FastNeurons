@@ -694,6 +694,11 @@ module FastNeurons
       return @a[row]
     end
 
+    # Get the current z values of a given row.
+    def get_z(row)
+        return @z[row]
+    end
+
     # Get derivative values.
     # @return [Hash] the hash of derivative values.
     # @since 1.5.0
@@ -756,6 +761,30 @@ module FastNeurons
         backpropagate
       end
     end
+
+    # Save the input data and expected outputs (teaching data).
+    def save_data(path)
+        # Make a hash with in input and expected outputs values.
+        hash =  { "input_data" => @a[0].to_a, "teach_data" => @T.to_a }
+
+        # Save to the file.
+        File.open(path,"w+") do |f|
+            f.puts(JSON.pretty_generate(hash))
+        end
+    end
+
+    # Load the input data and expected outputs (teaching data).
+    def load_data(path)
+        # Open file.
+        File.open(path,"r+") do |f|
+            # Load hash from JSON file.
+            hash = JSON.load(f)
+        end
+
+        # Sets the input and expected outputs.
+        self.input(hash.input_data,hash.teach_data)
+    end
+
 
     # Save learned network to JSON file.
     # @param [String] path file path

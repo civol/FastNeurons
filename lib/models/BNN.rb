@@ -28,7 +28,6 @@ module FastNeurons
       #   C = (alpha * A * B) + (beta * C)
       # In this case, the calculation results are stored in Matrix C.
       # For this reason, need to duplicate the @biases[row] value in @z[row] in advance.
-        # puts "@weights[row].shape=#{@weights[row].shape} @a[row].shape=#{@a[row].shape}"
         @z[row] = FastNeurons.sign(@weights[row]).dot(@a[row]) + @biases[row].round
     end
 

@@ -89,7 +89,7 @@ module FastNeurons
   # @since 1.1.0
   def self.softplus(z)
     # return (z.exp + 1.0).log
-      Numo::DFLoat::Math.log(Numo::DFloat::Math.exp(z) + 1.0)
+      Numo::DFloat::Math.log(Numo::DFloat::Math.exp(z) + 1.0)
   end
 
   # Apply swish function to z.

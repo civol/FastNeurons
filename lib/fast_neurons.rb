@@ -6,6 +6,8 @@ require_relative 'models/NN.rb'
 require_relative 'models/RBM.rb'
 require_relative 'models/BNN.rb'
 
+require_relative 'models/reservoir.rb'
+
 SCALE = 1.0507009873554804934193349852946
 ALPHA = 1.6732632423543772848170429916717
 DELTA = 1e-7
@@ -22,7 +24,7 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are applied to linear function
   # @since 1.1.0
   def self.linear(z)
-    return z
+      return z
   end
 
   # Apply sigmoid function to z.
@@ -133,6 +135,13 @@ module FastNeurons
   # @return [NMatrix] a vector of NMatrix that each elements are applied to softmax function
   def self.sign(z)
       return 1.0*(z.ge(0.0)) - 1.0*(z.lt(0.0))
+  end
+
+  # Apply the sin function to z.
+  # @param [NMatrix] z a vector of NMatrix containing the multiply accumulation of inputs, weights and biases
+  # @return [NMatrix] a vector of NMatrix that each elements are applied to softmax function
+  def self.sin(z)
+      return z.map { |x| Math.sin(x) }
   end
 
   # Differentiate linear function.

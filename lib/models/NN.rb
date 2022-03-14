@@ -485,12 +485,55 @@ module FastNeurons
 
       # If updating parameters is enable, updates biases and weights.
       if @updating_is_enabled
-        if @count == @batch_size
+        if @count >= @batch_size
           @count = 0
           update_parameters
         end
       end
     end
+
+        # Compute backpropagation parameters.
+
+        def backpropagate_NoUpdate
+          # If Softmax function is used on output layer with cross entropy function as loss function, do the following process.
+          if @keys[-1] == :Softmax
+            @delta[@neuron_columns.size-1] = @derivatives[-1].call(@T, @a[-1])
+          else
+            differentiate_activation_function(@neuron_columns.size-1)
+            @delta[@neuron_columns.size-1] = @loss_derivative.call(@T, @a[-1]) * @derivative_activation_function[@neuron_columns.size-1] * @coefficients
+          end
+    
+          (@neuron_columns.size-2).downto(0) do |i|
+            differentiate_activation_function(i)
+            compute_delta(i)
+          end
+        end
+    
+        # Compute backpropagation and update parameters.
+        # Used after putting in the value of the derivative from elsewhere.
+    
+        def backpropagate_AfterSetOtherDerivative
+    
+          differentiate_activation_function(@neuron_columns.size-1)
+    
+          compute_delta(@neuron_columns.size-1)
+          # Compute loss derivatives. 
+          compute_weights_derivatives(@neuron_columns.size-1)
+          compute_biases_derivatives(@neuron_columns.size-1)
+    
+          (@neuron_columns.size-2).downto(0) do |i|
+            differentiate_activation_function(i)
+            compute_delta(i)
+            compute_weights_derivatives(i)
+            compute_biases_derivatives(i)
+          end
+          if @updating_is_enabled
+            if @count >= @batch_size
+              @count = 0
+            update_parameters
+            end
+          end
+        end
 
     # Compute backpropagation from any layer.
     # @param [Integer] row the number of layer you want to begin computing
@@ -606,6 +649,7 @@ module FastNeurons
     # @since 1.0.0
     def update_weights(row)
       @loss_derivative_weights[row] = @loss_derivative_weights[row] / @batch_size.to_f
+      # puts "@loss_derivative_weights[row]=#{@loss_derivative_weights[row].to_a.flatten}"
       # @weights[row] = NMatrix::BLAS.gemm(@idm[row], @loss_derivative_weights[row], @weights[row], -(@learning_rate), 1.0)
       @weights[row] += @idm[row].dot(@loss_derivative_weights[row])*(-@learning_rate)
     end
@@ -703,8 +747,16 @@ module FastNeurons
     # @return [Hash] the hash of derivative values.
     # @since 1.5.0
     def get_derivative_values
-      return { activation_function: @derivative_activation_function, delta: @delta, weights: @loss_derivative_weights, biases: @loss_derivative_biases } 
+      # return { activation_function: @derivative_activation_function, delta: @delta, weights: @loss_derivative_weights, biases: @loss_derivative_biases } 
+      return { activation_function: @derivative_activation_function, delta: @delta, weights: @loss_derivative_weights, biases: @loss_derivative_biases,weight: @weights } 
     end
+
+    def get_derivative_values_weightSlice(cal)
+      # @Sliceweights=@weights[0][0..cal*2]
+       puts @weights[0]
+       puts @weights.to_a.size
+       return { activation_function: @derivative_activation_function, delta: @delta, weights: @loss_derivative_weights, biases: @loss_derivative_biases,weight: @weights } 
+     end
 
     # Set derivative values.
     # @param [Hash] derivative_values the hash of derivative values
@@ -714,7 +766,16 @@ module FastNeurons
       @delta = derivative_values[:delta]
       @loss_derivative_weights = derivative_values[:weights]
       @loss_derivative_biases = derivative_values[:biases]
+      @weights=derivative_values[:weight]
     end
+ 
+     def add_derivative_values(derivative_values)
+ 
+       @deltaPre=derivative_values[:delta]
+       @delta[@neuron_columns.size]=@deltaPre[0]
+       @weightPre=derivative_values[:weight]
+       @weights[@neuron_columns.size]=@weightPre[0];
+     end
 
     # Set a learning rate.
     # @param [Float] rate learning rate
@@ -792,6 +853,21 @@ module FastNeurons
     def save_network(path)
       # Make a hash of parameters.
         hash = { "columns" => @columns, "activation_function" => @keys, "biases" => @biases.map {|b| b.to_a }, "weights" => @weights.map {|w| w.to_a} }
+
+      # Save file.
+      File.open(path,"w+") do |f|
+        f.puts(JSON.pretty_generate(hash))
+      end
+    end
+
+    # Save learned network from column +row+ to JSON file.
+    # @param [String] path file path
+    # @since 1.0.0
+    def save_network_from(row,path)
+      # Make a hash of parameters.
+        hash = { "columns" => @columns, "activation_function" => @keys,
+                 "biases" => @biases[row..-1].map {|b| b.to_a },
+                 "weights" => @weights[row..-1].map {|w| w.to_a} }
 
       # Save file.
       File.open(path,"w+") do |f|

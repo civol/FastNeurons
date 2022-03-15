@@ -18,7 +18,7 @@ samples = (clickbaits.map {|cb|  [cb,  [1.0,0.0]]}) +
 samples.shuffle!
 
 epochs = 500
-train_size = samples.size / 2
+train_size = (samples.size / 1.5).to_i
 isize = samples[0][0][0].size
 msize = 128
 
@@ -30,8 +30,7 @@ puts "Initializing network"
 loss = []
 
 # Initialize the reservoir.
-reservoir = FastNeurons::Reservoir.new(isize,msize)
-reservoir.gamma = 0.8
+reservoir = FastNeurons::Reservoir.new(isize,msize, gamma: 0.8, density: 0.2)
 
 # Save the state of the reservoir.
 startR = reservoir.R
@@ -57,7 +56,10 @@ nn.randomize(:GlorotNormal, :Zeros)
 
 puts "Runnning..."
 
-train_samples = samples.sample(train_size)
+puts "Preparing samples..."
+samples.shuffle!
+train_samples = samples[0..train_size-1]
+test_samples  = samples[train_size..-1]
 
 puts "Precomputing the reservoir..."
 
@@ -133,10 +135,10 @@ puts "Understood!"
 
 check_data = []
 # confirmation of network
-10.times do
+20.times do
     # Sample an input.
-    index = rand(samples.size)
-    sample = samples[index]
+    index = rand(test_samples.size)
+    sample = test_samples[index]
     # Send it to the reservoir.
     # Restores the reservoir.
     nR = reservoir.R = startR

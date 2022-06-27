@@ -622,6 +622,9 @@ module FastNeurons
     # @since 1.2.0
     def compute_weights_derivatives(row) 
       # @loss_derivative_weights[row] += NMatrix::BLAS.gemm(@delta[row], @a[row].transpose)
+        # puts "@delta[#{row}]=#{@delta[row].inspect}"
+        # puts "@a[#{row}]=#{@a[row].inspect}"
+        # puts "@delta[row].dot(@a[row].transpose)=#{@delta[row].dot(@a[row].transpose).inspect}"
       @loss_derivative_weights[row] += @delta[row].dot(@a[row].transpose)
     end
 
@@ -649,7 +652,8 @@ module FastNeurons
     # @since 1.0.0
     def update_weights(row)
       @loss_derivative_weights[row] = @loss_derivative_weights[row] / @batch_size.to_f
-      # puts "@loss_derivative_weights[row]=#{@loss_derivative_weights[row].to_a.flatten}"
+      # puts "@loss_derivative_weights[#{row}]=#{@loss_derivative_weights[row].inspect}"
+      # puts "@weights[#{row}]=#{@weights[row].inspect}"
       # @weights[row] = NMatrix::BLAS.gemm(@idm[row], @loss_derivative_weights[row], @weights[row], -(@learning_rate), 1.0)
       @weights[row] += @idm[row].dot(@loss_derivative_weights[row])*(-@learning_rate)
     end

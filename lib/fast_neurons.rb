@@ -5,6 +5,7 @@ require 'random_bell'
 require_relative 'models/NN.rb'
 require_relative 'models/RBM.rb'
 require_relative 'models/BNN.rb'
+require_relative 'models/CNN.rb'
 
 require_relative 'models/reservoir.rb'
 
@@ -63,7 +64,7 @@ module FastNeurons
   # @since 1.1.0
   def self.leakyrelu(z)
     # return N[z.map{ |x| x > 0.0 ? x : 0.01 * x }.to_a.flatten].transpose
-      return z.gt(0.0)*z + z.le(0.0)*0.01
+      return z.gt(0.0)*z + z.le(0.0)*z*0.01
   end
 
   # Apply elu function to z.

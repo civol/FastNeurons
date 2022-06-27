@@ -42,9 +42,9 @@ puts "Runnning..."
 
     mnist.print_ascii(inputs) # Output training data.
     mnist.print_ascii(nn.get_outputs) # Output the output of neural network.
-    #nn.compute_loss
+    nn.compute_loss
     #loss << nn.get_loss
-    #nn.initialize_loss
+    nn.initialize_loss
   end
 end
 

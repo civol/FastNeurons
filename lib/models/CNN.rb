@@ -44,7 +44,7 @@ module FastNeuronsCNN
                   proc { |z,a| z.gt(0.0).cast_to(Numo::DFloat) + 
                                z.le(0.0).cast_to(Numo::DFloat)*0.01 } ]
 
-    Sign    = [ proc { |z|   z.sign * 2.0 - 1.0 },
+    Sign    = [ proc { |z|   z.sign.cast_to(Numo::DFloat)  },
                 proc { |z,a| 1.0 } ]
 
     
@@ -65,7 +65,7 @@ module FastNeuronsCNN
         #  @param f_shape the shape of the filters
         #  @param step the step of convolution
         #  @param pad the padding of convolution.
-        def initialize(m_shape,f_shape,step = 1, pad = 0)
+        def initialize(m_shape, f_shape, step = 1, pad = 0)
             # Get and check the shapes.
             @m_shape = m_shape.to_a[0..1]
             @f_shape = f_shape.to_a[0..1]
@@ -373,7 +373,7 @@ module FastNeuronsCNN
         def structure
             return { class: self.class,
                      input: self.geo_in, output: self.geo_out,
-                     func: @func,
+                     func: @func[0].source_location,
                      parameters: 0 }
         end
 
@@ -423,8 +423,11 @@ module FastNeuronsCNN
             @rand_weight = RAND_DEFAULT unless @rand_weight
             @rand_bias   = opt[:rand_bias]
             @rand_bias   = RAND_DEFAULT unless @rand_bias
+            # Learning rate.
             @rate        = opt[:rate]
             @rate        = @rate ? @rate.to_f : RATE_DEFAULT
+            # Binarized neural network.
+            @bnn         = opt[:bnn] ? true : false
 
             # Create the weights matrix.
             @weights = Numo::DFloat.zeros(@geo_weight)
@@ -455,7 +458,11 @@ module FastNeuronsCNN
         def forward(input)
             # puts "input.shape=#{input.shape}, @geo_delta=#{@geo_delta}, @geo_in=#{@geo_in}"
             @input = @reshape ? input.reshape(*@geo_delta) : input
-            @output = @weights.dot(@input)+@biases
+            if @bnn then
+	       @output = Sign[0].(@weights).dot(@input)+@biases.round
+            else
+	       @output = @weights.dot(@input)+@biases
+            end
             return @output
         end
 
@@ -569,8 +576,11 @@ module FastNeuronsCNN
             # Randomization.
             @rand_weight = opt[:rand_weight]
             @rand_weight = RAND_DEFAULT unless @rand_weights
+            # Learning rate.
             @rate        = opt[:rate]
             @rate        = @rate ? @rate.to_f : RATE_DEFAULT
+            # Binarized neural network.
+            @bnn         = opt[:bnn] ? true : false
 
             # Create the filters' matrices.
             @filters = @ch_out.times.map { Numo::DFloat.zeros(@geo_filter) }
@@ -603,11 +613,22 @@ module FastNeuronsCNN
             @input_array = input.ndim == 3 ? input.each_over_axis.to_a : [input]
             @output_array = []
             pos = 0
-            @ch_in.times do |i|
-                @num.times do
-                    @output_array << @conv_forward.(@input_array[i],@filters[pos])
-                    pos += 1
-                end
+            if @bnn then
+               @ch_in.times do |i|
+                   @num.times do
+                       @output_array << 
+                       @conv_forward.(@input_array[i],Sign[0].(@filters[pos])).round
+                       pos += 1
+                   end
+               end
+            else
+               @ch_in.times do |i|
+                   @num.times do
+                       @output_array << 
+                         @conv_forward.(@input_array[i],@filters[pos])
+                       pos += 1
+                   end
+               end
             end
             @output = Numo::DFloat.asarray(@output_array)
         end
@@ -641,6 +662,7 @@ module FastNeuronsCNN
                           (@geo_out[2]-1)..(@geo_out[2]-2+@geo_filter[1])] =
                 f.fliplr.flipud
                 # f
+                # f.transpose
             end
         end
 
@@ -666,13 +688,16 @@ module FastNeuronsCNN
                 # puts "d.shape=#{d.shape} sdelta[-1].shape=#{sdelta[-1].shape}"
                 pos = pos+1
                 if pos == @num then
-                    @delta = Numo::DFloat.asarray(sdelta).mean
+                    # @delta << Numo::DFloat.asarray(sdelta).mean(axis:0)
+                    @delta << Numo::DFloat.asarray(sdelta).sum(axis:0)
                     sdelta = []
                     pos = 0
                 end
             end
+            # puts "@delta=#{@delta}"
             @delta = Numo::DFloat.asarray(@delta)
             # puts "@delta.shape=#{@delta.shape} @geo_in=#{@geo_in}"
+            @delta
         end
 
         ## Update the weights.
@@ -717,7 +742,8 @@ module FastNeuronsCNN
             return { class: self.class,
                      input: self.geo_in, output: self.geo_out,
                      filter_size: @geo_filter, filter_num: @num,
-                     step: @step, pad: @pad }
+                     step: @step, pad: @pad,
+                     parameters: @geo_filter[0]*@geo_filter[1]*@num }
         end
 
 
@@ -833,6 +859,8 @@ module FastNeuronsCNN
         def backward(delta_in)
             @delta = []
             delta_in.each_over_axis.with_index do |ch,idx|
+                # puts "ch=#{ch.inspect}"
+                # puts "input_array[idx]=#{@input_array[idx].inspect}"
                 @delta << @pooler.reverse(ch,@input_array[idx])
             end
             @delta = Numo::DFloat.asarray(@delta)
@@ -870,7 +898,8 @@ module FastNeuronsCNN
         def structure
             return { class: self.class,
                      input: self.geo_in, output: self.geo_out,
-                     pool_size: @geo_pool, func: @func }
+                     pool_size: @geo_pool, func: @func,
+                     parameters: 0 }
         end
 
 

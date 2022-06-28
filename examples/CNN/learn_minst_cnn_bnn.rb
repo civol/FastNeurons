@@ -58,12 +58,17 @@ labels = mnist.load_labels
 width = height = 28
 
 # Normalize input values.
-inputs = images.map { |image| mnist.normalize(image).flatten }
-inputs = inputs.map { |input| Numo::DFloat.asarray(input).reshape!(width,height) }
-
+inputs = images.map do |image|
+    mnist.binarize(mnist.normalize(image,-1.0..1.0),-1.0,1.0).flatten
+end
+inputs = inputs.map do |input|
+    Numo::DFloat.asarray(input).reshape!(width,height)
+end
+# puts "inputs[0] = #{inputs[0].inspect}"
 # Normalize the expected results
-expects = labels.map { |label| res = [0.0] * 10 ; res[label] = 1.0 ; res }
+expects = labels.map { |label| res = [-1.0] * 10 ; res[label] = 1.0 ; res }
 expects = expects.map { |expect| Numo::DFloat.asarray(expect) }
+# puts "expects[0] = #{expects[0].inspect}"
 
 # Generate the samples.
 samples = inputs.zip(expects)
@@ -76,19 +81,20 @@ test  = samples[0..99]
 
 # Check the creation of CNN.
 # cnn = CNN.new([width,height],
-#               [ Dense[30], Activation[Sigmoid],
-#                 Dense[10], Activation[Sigmoid] ], rate: 0.01)
+#               [ Dense[256, bnn: true], Activation[Sign],
+#                 Dense[10, bnn: true], Activation[Sign] ], rate: 0.01)
 # cnn = CNN.new([width,height], [
-#                 Convolution[size: [3,3], num: 1], Activation[LeakyReLU],
-#                 Dense[10], Activation[Sigmoid] ], rate: 0.1)
+#                 Convolution[size: [3,3], num: 1, bnn: true], 
+#                 Activation[Sign],
+#                 Dense[10, bnn: true], Activation[Sign] ], rate: 0.01)
 cnn = CNN.new([width,height], [
-                Convolution[size: [3,3], num: 4], 
+                Convolution[size: [3,3], num: 4, bnn: true], 
                 Pooling[size: [2,2], func: :max], 
-                Activation[LeakyReLU],
-                Convolution[size: [3,3], num: 1],
+                Activation[Sign],
+                Convolution[size: [3,3], num: 1, bnn: true],
                 # Pooling[size: [2,2], func: :max], 
-                Activation[LeakyReLU],
-                Dense[10], Activation[Sigmoid] ], rate: 0.01)
+                Activation[Sign],
+                Dense[10, bnn: true], Activation[Sign] ], rate: 0.01)
 
 
 puts "Structure:"

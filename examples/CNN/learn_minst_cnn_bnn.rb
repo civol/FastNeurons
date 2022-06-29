@@ -3,48 +3,6 @@ require_relative '../../lib/mnist_loader'
 require 'gnuplot'
 
 
-=begin
-
-m = Numo::DFloat.new(1024,1024).seq*2
-f = Numo::DFloat.new(3,3).seq
-p = Numo::DFloat.zeros(2,2)
-# d = Numo::DFloat.zeros(1022,1022)
-
-puts "m:"
-puts m.inspect
-puts "f:"
-puts f.inspect
-puts "p:"
-puts p.inspect
-
-puts Time.now
-
-conv = FastNeurons::Convolve.new(m.shape,f.shape)
-puts "Convoler built."
-
-d = nil
-
-puts Time.now
-100.times { d = conv.(m,f) }
-puts Time.now
-
-puts "d:"
-puts d.inspect
-
-puts Time.now
-pool = FastNeurons::Pool.new(m.shape,p.shape,:min)
-puts "Pooler built."
-
-d2 = nil
-puts Time.now
-100.times { d2 = pool.(m) }
-puts Time.now
-
-puts "d2:"
-puts d2.inspect
-
-=end
-
 include FastNeuronsCNN
 
 puts "Loading images"
@@ -101,6 +59,8 @@ puts "Structure:"
 puts cnn.structure
 puts
 
+best_success_rate = 0.0
+best_state = {}
 
 puts "Training..."
 2000.times do |epoch|
@@ -109,12 +69,6 @@ puts "Training..."
     failure = 0
 
     train.each do |sample|
-        # idx = Random.rand(inputs.size)
-        # puts "\n\n==============================\n"
-        # puts "One-step learn for sample ##{idx}..."
-
-        # cnn.update_input(inputs[idx])
-        # cnn.update_expect(expects[idx])
         cnn.update_input(sample[0])
         cnn.update_expect(sample[1])
 
@@ -147,23 +101,34 @@ puts "Training..."
         # print("=")
 
     end
-    puts "Epoch #{epoch}, success rate: #{(success*100.0)/(success+failure)}"
+    success_rate = (success*100.0)/(success+failure)
+    puts "Epoch #{epoch}, success rate: #{success_rate}"
+
+    if (success_rate > best_success_rate) then
+        # Best sucess rate then save current state.
+        best_state = cnn.state
+        best_success_rate = success_rate
+    end
+    if success_rate == 100.0 then
+        # Cannot be better, stop here.
+        break
+    end
 end
+
+# Serialize the best state.
+File.open("cnn_state.json","w") { |f| f.write(best_state.to_json) }
+
 
 success = 0
 failure = 0
 
+# Set the cnn to the best state.
+cnn.state = best_state
+
 puts "\nTesting..."
 
 test.each do |sample|
-    # idx = Random.rand(inputs.size)
-    # puts "\n\n==============================\n"
-    # puts "One-step learn for sample ##{idx}..."
-
-    # cnn.update_input(inputs[idx])
-    # cnn.update_expect(expects[idx])
     cnn.update_input(sample[0])
-    # cnn.update_expect(sample[1])
 
     cnn.forward
 
@@ -171,16 +136,10 @@ test.each do |sample|
     # puts "Expect: #{expects[idx].inspect}"
 
     cnn.update_loss
-    # cnn.update_grad
 
     # puts "Loss: #{cnn.loss.inspect}"
-    # puts "Grad: #{cnn.grad.inspect}"
-
-    # cnn.backward
-    # puts "Delta: #{cnn.delta.inspect}"
 
     cnn.reset_loss
-    # cnn.reset_grad
 
     if cnn.output.argmax == sample[1].argmax then
         success += 1

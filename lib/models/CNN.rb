@@ -14,7 +14,8 @@ module FastNeuronsCNN
 
     # Mean square calculator.
     MeanSquare = [ proc { |y,t| ((y-t).square).sum / y.size },
-                   proc { |y,t| (y-t) * (2.0/y.size) } ]
+                   proc { |y,t| (y-t) * (2.0/y.size) },
+                   "MeanSquare" ]
 
 
     # Some often used activation functions.
@@ -24,7 +25,8 @@ module FastNeuronsCNN
     # of the function and not the input.
 
     Sigmoid = [ proc { |z| 1.0/(Numo::DFloat::Math.exp(-z)+1.0) },
-                proc { |z,a| (-a + 1.0) * a } ]
+                proc { |z,a| (-a + 1.0) * a },
+                "Sigmoid" ]
 
     Tanh    = [
         proc do |z|
@@ -34,18 +36,22 @@ module FastNeuronsCNN
         end,
         proc do |z,a|
             1.0 - (a.square)
-        end ]
+        end,
+        "Tanh" ]
 
     ReLU    = [ proc { |z| (z+z.abs) / 2.0 },
-                proc { |z,a| z.gt(0.0).cast_to(Numo::DFloat) } ]
+                proc { |z,a| z.gt(0.0).cast_to(Numo::DFloat) },
+                "ReLU" ]
 
     LeakyReLU = [ proc { |z|   z.gt(0.0).cast_to(Numo::DFloat)*z +
                                z.le(0.0).cast_to(Numo::DFloat)*z*0.01 },
                   proc { |z,a| z.gt(0.0).cast_to(Numo::DFloat) + 
-                               z.le(0.0).cast_to(Numo::DFloat)*0.01 } ]
+                               z.le(0.0).cast_to(Numo::DFloat)*0.01 },
+                  "LeakyReLU" ]
 
     Sign    = [ proc { |z|   z.sign.cast_to(Numo::DFloat)  },
-                proc { |z,a| 1.0 } ]
+                proc { |z,a| 1.0 },
+                "Sign" ]
 
     
     # Class for a fast convolution.
@@ -297,6 +303,21 @@ module FastNeuronsCNN
             return { class: self.class,
                      input: self.geo_in, output: self.geo_out }
         end
+
+        ## Returns the state of the layer.
+        #  Can be used for serialization and use in other application
+        #  (Ruby or not).
+        def state
+            return { type: self.class.name.split("::").last,
+                     input: self.geo_in, output: self.geo_out }
+        end
+
+        ## Sets the state of the layer.
+        #  @param st the state to set.
+        #  NOTE: the structure cannot be changed though.
+        def state=(st)
+            raise "The state= method must be defined in: #{self.class}"
+        end
     end
 
     
@@ -313,7 +334,7 @@ module FastNeuronsCNN
             @geo_in = geo_in.flatten.map(&:to_i)
 
             # Check and the function: it must be a pair function and derivate.
-            @func = func.map {|e| e.to_proc }
+            @func = func[0..1].map {|e| e.to_proc } + [func[-1]]
 
             # The input geometry is also the output geometry.
             @geo_out = @geo_in
@@ -373,10 +394,23 @@ module FastNeuronsCNN
         def structure
             return { class: self.class,
                      input: self.geo_in, output: self.geo_out,
-                     func: @func[0].source_location,
+                     func: @func[-1],
                      parameters: 0 }
         end
 
+        ## Returns the state of the layer.
+        #  Can be used for serialization and use in other application
+        #  (Ruby or not).
+        def state
+            return super.merge(func: @func[-1])
+        end
+
+        ## Sets the state of the layer.
+        #  @param st the state to set.
+        #  NOTE: the structure cannot be changed though.
+        def state=(st)
+            # Nothing to do.
+        end
 
 
         ## Describes a dense layer.
@@ -399,7 +433,7 @@ module FastNeuronsCNN
         #  @param geo_in the geometry of the inputs
         #  @param size the number of neurons in the layer
         #  @param opt the options of the layer:
-        #         :rand_weigth and :rand_bias for the randomization of the
+        #         :rand_weight and :rand_bias for the randomization of the
         #         weights and biases, :rate for the learning rate.
         def initialize(geo_in, size, opt = {})
             # Check and set the input geometry.
@@ -519,6 +553,22 @@ module FastNeuronsCNN
                      parameters: @weights.size*@biases.size }
         end
 
+        ## Returns the state of the layer.
+        #  Can be used for serialization and use in other application
+        #  (Ruby or not).
+        def state
+            return super.merge(weights: @weights.to_a, biases: @biases.to_a)
+            return res
+        end
+
+        ## Sets the state of the layer.
+        #  @param st the state to set.
+        #  NOTE: the structure cannot be changed though.
+        def state=(st)
+            @weights = Numo::DFloat.asarray(st[:weights])
+            @biases  = Numo::DFloat.asarray(st[:biases])
+        end
+
 
 
         ## Describes a dense layer.
@@ -543,7 +593,7 @@ module FastNeuronsCNN
         #  @param step the step size
         #  @param pad the pad size
         #  @param opt the options of the layer:
-        #         :rand_weigth for the randomization of the weights and biases,
+        #         :rand_weight for the randomization of the weights and biases,
         #         :rate for the learning rate.
         def initialize(geo_in, geo_filter, num, step, pad, opt = {})
             # Check and set the input geometry.
@@ -746,6 +796,21 @@ module FastNeuronsCNN
                      parameters: @geo_filter[0]*@geo_filter[1]*@num }
         end
 
+        ## Returns the state of the layer.
+        #  Can be used for serialization and use in other application
+        #  (Ruby or not).
+        def state
+            return super.merge( filters: @filters.map {|filter| filter.to_a },
+                                step: @step, pad: @pad)
+        end
+
+        ## Sets the state of the layer.
+        #  @param st the state to set.
+        #  NOTE: the structure cannot be changed though.
+        def state=(st)
+            @filters = st[:filters].map { |filter| Numo::DFloat.asarray(filter) }
+        end
+
 
         ## Describes a convolution layer.
         #  @params args list of arguments as follows:
@@ -900,6 +965,20 @@ module FastNeuronsCNN
                      input: self.geo_in, output: self.geo_out,
                      pool_size: @geo_pool, func: @func,
                      parameters: 0 }
+        end
+
+        ## Returns the state of the layer.
+        #  Can be used for serialization and use in other application
+        #  (Ruby or not).
+        def state
+            return super.merge(func: @func, pool: @geo_pool)
+        end
+
+        ## Sets the state of the layer.
+        #  @param st the state to set.
+        #  NOTE: the structure cannot be changed though.
+        def state=(st)
+            # Nothing to do.
         end
 
 
@@ -1109,7 +1188,18 @@ module FastNeuronsCNN
 
         ## Get the structure of the neural network.
         def structure
-            return @layers.map {|layer| layer.structure }
+            return @layers.map { |layer| layer.structure }
+        end
+
+        ## Get the state of the neural network.
+        def state
+            return @layers.map{ |layer| layer.state }
+        end
+
+        ## Set the state of the neural network.
+        #  @param sts the new state to set.
+        def state=(sts)
+            @layers.zip(sts).each {|layer,st| layer.state = st }
         end
 
     end

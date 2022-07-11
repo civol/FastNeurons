@@ -81,7 +81,7 @@ test  = samples[0..99]
 # cnn = CNN.new([width,height], [
 #                 Convolution[size: [3,3], num: 1], Activation[LeakyReLU],
 #                 Dense[10], Activation[Sigmoid] ], rate: 0.1)
-cnn = CNN.new([width,height], [
+cnn = CNN.new([height,width], [
                 Convolution[size: [3,3], num: 4], 
                 Pooling[size: [2,2], func: :max], 
                 Activation[LeakyReLU],

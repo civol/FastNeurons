@@ -49,7 +49,8 @@ module FastNeuronsCNN
                                z.le(0.0).cast_to(Numo::DFloat)*0.01 },
                   "LeakyReLU" ]
 
-    Sign    = [ proc { |z|   z.sign.cast_to(Numo::DFloat)  },
+    # Sign    = [ proc { |z|   z.sign.cast_to(Numo::DFloat)  },
+    Sign    = [ proc { |z|   z.ge(0.0).cast_to(Numo::DFloat)-z.lt(0.0).cast_to(Numo::DFloat)  },
                 proc { |z,a| 1.0 },
                 "Sign" ]
 
@@ -351,6 +352,7 @@ module FastNeuronsCNN
         def forward(input)
             @input = input
             @output = @func[0].call(@input)
+               puts "Now output=#{@output.to_a.inspect}"
             return @output
         end
 
@@ -494,6 +496,10 @@ module FastNeuronsCNN
             @input = @reshape ? input.reshape(*@geo_delta) : input
             if @bnn then
 	       @output = Sign[0].(@weights).dot(@input)+@biases.round
+               puts "input=#{@input.to_a.inspect}"
+               # puts "Signed weights=#{Sign[0].(@weights).to_a.inspect}"
+               # puts "Rounded Biases=#{@biases.round.to_a.inspect}"
+               puts "output=#{@output.to_a.inspect}"
             else
 	       @output = @weights.dot(@input)+@biases
             end
@@ -665,7 +671,7 @@ module FastNeuronsCNN
             pos = 0
             if @bnn then
                @ch_in.times do |i|
-                   @num.times do
+                   @num.times do|
                        @output_array << 
                        @conv_forward.(@input_array[i],Sign[0].(@filters[pos])).round
                        pos += 1
@@ -681,6 +687,11 @@ module FastNeuronsCNN
                end
             end
             @output = Numo::DFloat.asarray(@output_array)
+               puts "conv input=#{input.to_a.inspect}"
+               # puts "Signed weights=#{Sign[0].(@weights).to_a.inspect}"
+               # puts "Rounded Biases=#{@biases.round.to_a.inspect}"
+               puts "output=#{@output.to_a.inspect}"
+               @output
         end
 
 
@@ -800,15 +811,21 @@ module FastNeuronsCNN
         #  Can be used for serialization and use in other application
         #  (Ruby or not).
         def state
-            return super.merge( filters: @filters.map {|filter| filter.to_a },
-                                step: @step, pad: @pad)
+            return super.merge( filters: [@num, *@geo_filter], 
+                           weights: @filters.map {|filter| filter.to_a.flatten },
+                           # For now step and pad are only unidimentional,
+                           # but they should be multidimentional.
+                           step: [@step]*@geo_filter.size,
+                           pad:  [@pad]*@geo_filter.size )
         end
 
         ## Sets the state of the layer.
         #  @param st the state to set.
         #  NOTE: the structure cannot be changed though.
         def state=(st)
-            @filters = st[:filters].map { |filter| Numo::DFloat.asarray(filter) }
+            @filters = st[:weights].map do |filter| 
+                Numo::DFloat.asarray(filter).reshape(*@geo_filter)
+            end
         end
 
 
@@ -850,8 +867,9 @@ module FastNeuronsCNN
                 pad = pad ? pad.to_i : 0
                 res[4] = pad
                 # Options
-                opt = args[:opt]
-                res[5] = opt.to_h if opt
+                # opt = args[:opt]
+                # res[5] = opt.to_h if opt
+                res[5] = args
             else
                 # Size of the filters.
                 raise "Convolution layer without filter size." unless args.size >= 2 
@@ -916,6 +934,8 @@ module FastNeuronsCNN
             @input_array = input.ndim == 3 ? input.each_over_axis.to_a : [input]
             @output_array = @input_array.map { |ch| @pooler.(ch) }
             @output = Numo::DFloat.asarray(@output_array)
+               puts "pool output=#{@output.to_a.inspect}"
+            @output
         end
 
         ## The back propagation.

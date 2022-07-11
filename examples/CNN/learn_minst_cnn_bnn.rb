@@ -20,7 +20,7 @@ inputs = images.map do |image|
     mnist.binarize(mnist.normalize(image,-1.0..1.0),-1.0,1.0).flatten
 end
 inputs = inputs.map do |input|
-    Numo::DFloat.asarray(input).reshape!(width,height)
+    Numo::DFloat.asarray(input).reshape!(height,width)
 end
 # puts "inputs[0] = #{inputs[0].inspect}"
 # Normalize the expected results
@@ -38,19 +38,31 @@ test  = samples[0..99]
 
 
 # Check the creation of CNN.
-# cnn = CNN.new([width,height],
-#               [ Dense[256, bnn: true], Activation[Sign],
+# cnn = CNN.new([height,width],
+#               [ Dense[32, bnn: true], Activation[Sign],
 #                 Dense[10, bnn: true], Activation[Sign] ], rate: 0.01)
-# cnn = CNN.new([width,height], [
+# cnn = CNN.new([height,width], [
 #                 Convolution[size: [3,3], num: 1, bnn: true], 
 #                 Activation[Sign],
 #                 Dense[10, bnn: true], Activation[Sign] ], rate: 0.01)
-cnn = CNN.new([width,height], [
-                Convolution[size: [3,3], num: 4, bnn: true], 
+# cnn = CNN.new([height,width], [
+#                 Convolution[size: [3,3], num: 1, bnn: true], 
+#                 Activation[Sign],
+#                 Pooling[size: [2,2], func: :max], 
+#                 # Activation[Sign],
+#                 # Convolution[size: [3,3], num: 1, bnn: true],
+#                 # # Pooling[size: [2,2], func: :max], 
+#                 # Activation[Sign],
+#                 Dense[10, bnn: true], Activation[Sign] ], rate: 0.01)
+cnn = CNN.new([height,width], [
                 Pooling[size: [2,2], func: :max], 
+                # Convolution[size: [3,3], num: 1, bnn: true], 
+                Convolution[size: [3,3], num: 2, bnn: true], 
                 Activation[Sign],
-                Convolution[size: [3,3], num: 1, bnn: true],
                 # Pooling[size: [2,2], func: :max], 
+                # Activation[Sign],
+                Convolution[size: [3,3], num: 1, bnn: true],
+                # # Pooling[size: [2,2], func: :max], 
                 Activation[Sign],
                 Dense[10, bnn: true], Activation[Sign] ], rate: 0.01)
 
@@ -63,7 +75,7 @@ best_success_rate = 0.0
 best_state = {}
 
 puts "Training..."
-2000.times do |epoch|
+200.times do |epoch|
 
     success = 0
     failure = 0
@@ -115,6 +127,7 @@ puts "Training..."
     end
 end
 
+
 # Serialize the best state.
 File.open("cnn_state.json","w") { |f| f.write(best_state.to_json) }
 
@@ -124,6 +137,9 @@ failure = 0
 
 # Set the cnn to the best state.
 cnn.state = best_state
+
+# The place to save to cnn results.
+results = []
 
 puts "\nTesting..."
 
@@ -146,7 +162,15 @@ test.each do |sample|
     else
         failure += 1
     end
+
+    results << [ sample[0], cnn.output.map { |i| i >= 0 ? 1.0 : -1.0 } ]
+
     puts "Sucess rate: #{(success * 100.0) / (success+failure)}%"
 end
 
 
+# Serialize the used samples.
+File.open("samples.json","w") do |f|
+    # f.write(test.map {|(i,o)| [i.to_a.flatten,o.to_a.flatten] }.to_json)
+    f.write(results.map {|(i,o)| [i.to_a.flatten,o.to_a.flatten] }.to_json)
+end
